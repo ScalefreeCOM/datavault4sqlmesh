@@ -1,10 +1,33 @@
-  cat > .gitignore << 'EOF'
-  __pycache__/
-  *.py[cod]
-  *.egg-info/
-  .pytest_cache/
-  dist/
-  build/
-  .venv/
-  CLAUDE.md
-  EOF
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+htmlcov/
+.coverage
+coverage.xml
+
+# IDE / editor
+.vscode/
+.idea/
+*.iml
+
+# Claude Code project instructions (not for version control)
+CLAUDE.md

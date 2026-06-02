@@ -1,7 +1,0 @@
-datavault4sqlglot
-sqlmesh
-sqlglot
-pydantic
-
-[test]
-pytest

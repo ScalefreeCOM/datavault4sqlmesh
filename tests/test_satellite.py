@@ -151,3 +151,22 @@ class TestSatelliteModel:
 
         result = execute(evaluator=None)
         assert isinstance(result, exp.Expression)
+
+    def test_auto_generate_with_source_table(self, sqlmesh):
+        """source_schema + source_table auto-generates the execute closure."""
+        from sqlglot import exp
+        from datavault4sqlmesh.models.satellite import satellite_model
+
+        execute = satellite_model(
+            name="dv.customer_0_s",
+            parent_hash_key="hk_customer_h",
+            hash_diff="hd_customer_s",
+            payload=["customer_name", "email"],
+            source_schema="stage",
+            source_table="stg_customer",
+        )
+        result = execute(evaluator=None)
+        assert isinstance(result, exp.Expression)
+        sql = result.sql(dialect="snowflake")
+        assert "stg_customer" in sql
+        assert "customer_name" in sql

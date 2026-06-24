@@ -39,11 +39,12 @@ class TestLinkModel:
                     SourceBinding(
                         source=SourceModel(schema_name="stage", table_name="stg_orders"),
                         hash_key_col="hk_order_customer_l",
-                        foreign_hash_keys=["hk_order_h", "hk_customer_h"],
+                        fk_columns=["hk_order_h", "hk_customer_h"],
                         rsrc_statics=["OMS/orders"],
                     )
                 ],
                 link_hash_key="hk_order_customer_l",
+                foreign_hash_keys=["hk_order_h", "hk_customer_h"],
                 is_incremental=True,
             ).generate_sql()
 
@@ -68,11 +69,12 @@ class TestLinkModel:
                     SourceBinding(
                         source=SourceModel(schema_name="stage", table_name="stg_orders"),
                         hash_key_col="hk_order_customer_l",
-                        foreign_hash_keys=["hk_order_h", "hk_customer_h"],
+                        fk_columns=["hk_order_h", "hk_customer_h"],
                         rsrc_statics=["OMS/orders"],
                     )
                 ],
                 link_hash_key="hk_order_customer_l",
+                foreign_hash_keys=["hk_order_h", "hk_customer_h"],
                 is_incremental=True,
             ).generate_sql()
 
@@ -108,11 +110,12 @@ class TestLinkModel:
                     SourceBinding(
                         source=SourceModel(schema_name="stage", table_name="stg_orders"),
                         hash_key_col="hk_order_customer_l",
-                        foreign_hash_keys=["hk_order_h", "hk_customer_h"],
+                        fk_columns=["hk_order_h", "hk_customer_h"],
                         rsrc_statics=["OMS/orders"],
                     )
                 ],
                 link_hash_key="hk_order_customer_l",
+                foreign_hash_keys=["hk_order_h", "hk_customer_h"],
                 is_incremental=True,
             ).generate_sql()
 

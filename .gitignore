@@ -31,3 +31,6 @@ coverage.xml
 
 # Claude Code project instructions (not for version control)
 CLAUDE.md
+
+# Local findings / analysis notes
+findings/

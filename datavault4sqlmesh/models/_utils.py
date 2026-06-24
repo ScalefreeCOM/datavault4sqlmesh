@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import inspect
 from typing import Callable, Dict
 
 _EXECUTE_REGISTRY: Dict[str, Callable] = {}
-
-# Pre-built signature for all execute closures: (evaluator, **kwargs)
-_EXECUTE_SIGNATURE = inspect.signature(lambda evaluator, **kwargs: None)
 
 
 def _bind_execute_to_caller(fn: Callable, model_name: str) -> None:
@@ -17,29 +13,47 @@ def _bind_execute_to_caller(fn: Callable, model_name: str) -> None:
     __module__ + __name__.  Closures defined inside a factory cannot satisfy this
     because they have no module-level name.
 
-    This helper registers the function in this module's own namespace under a
-    unique key derived from the model name, then points __module__ and __name__
-    here so SQLMesh's import resolves correctly without touching the model file's
-    globals (which would collide with SQLMesh's own macro scanner).
+    This helper creates a thin shim defined inside this module, registers it in
+    this module's globals, and wires it so that:
+
+    - ``build_env`` follows ``fn.__wrapped__`` → shim, sees its file is not
+      project-relative, and emits an IMPORT executable
+      (``from datavault4sqlmesh.models._utils import <safe_key>``).
+    - ``MacroEvaluator`` imports the shim, sees ``__sqlmesh__macro__``, and
+      registers it as a callable macro.
+    - ``call_macro`` calls the shim, which delegates to ``fn``.
+
+    The shim deliberately has **no** ``__wrapped__`` attribute.  Python 3.13's
+    ``typing.get_type_hints`` follows ``__wrapped__`` chains without cycle
+    detection; a self-referential ``fn.__wrapped__ = fn`` (previous approach)
+    caused an infinite loop inside ``call_macro``.
     """
     _EXECUTE_REGISTRY[model_name] = fn
     safe_key = "_execute_" + model_name.replace(".", "_")
-    fn.__module__ = __name__  # datavault4sqlmesh.models._utils
+
+    # fn.__module__ / __name__ must match this module so build_env serializes the
+    # function as an IMPORT from here (not as an inline DEFINITION from the factory).
+    fn.__module__ = __name__
     fn.__name__ = safe_key
     fn.__qualname__ = safe_key
-    # SQLMesh only promotes IMPORT-serialized functions to macros when this
-    # attribute is set (same flag used by @macro() decorator).  build_env also
-    # reads __wrapped__ immediately after finding the flag (expecting the
-    # functools.wraps pattern), so we point it back at fn itself.
-    setattr(fn, "__sqlmesh__macro__", True)
-    # build_env accesses __wrapped__ to get the object to serialize;
-    # pointing back at fn serializes the closure via IMPORT (module is external).
-    fn.__wrapped__ = fn
-    # inspect.signature calls unwrap(stop=lambda f: hasattr(f, "__signature__")),
-    # so setting this prevents the self-referential __wrapped__ from causing a
-    # wrapper loop when call_macro introspects the function.
-    fn.__signature__ = _EXECUTE_SIGNATURE
-    globals()[safe_key] = fn
+
+    # The shim is defined here (in _utils.py) so inspect.getfile returns a
+    # non-project path, and it captures fn by closure to delegate the call.
+    def _shim(evaluator, **kwargs):  # noqa: ANN001
+        return fn(evaluator, **kwargs)
+
+    _shim.__module__ = __name__
+    _shim.__name__ = safe_key
+    _shim.__qualname__ = safe_key
+    # __sqlmesh__macro__ causes MacroEvaluator to register the IMPORT-serialized
+    # function as a callable macro (otherwise IMPORT functions are skipped).
+    setattr(_shim, "__sqlmesh__macro__", True)
+
+    # build_env does `obj = obj.__wrapped__` when it sees __sqlmesh__macro__;
+    # point it at the shim so serialize_env picks up the right name/module.
+    fn.__wrapped__ = _shim
+
+    globals()[safe_key] = _shim
 
 
 def parse_model_name(name: str) -> tuple[str, str | None, str | None]:

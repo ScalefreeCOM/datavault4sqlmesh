@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional, Union
 
-from datavault4sqlglot.metadata import SourceModel
-
 from datavault4sqlmesh.schema.inference import infer_satellite_columns
 
 
@@ -13,7 +11,8 @@ def satellite_model(
     hash_diff: Union[str, Dict[str, str]],
     payload: Optional[List[str]] = None,
     *,
-    source_model: Optional[SourceModel] = None,
+    source_schema: Optional[str] = None,
+    source_table: Optional[str] = None,
     kind: Optional[Dict[str, object]] = None,
     cron: Optional[str] = None,
     grain: Optional[List[str]] = None,
@@ -23,29 +22,30 @@ def satellite_model(
     **model_kwargs,
 ) -> Callable:
     """
-    Decorator factory for a Data Vault Satellite v0 SQLMesh model.
+    Register a Data Vault Satellite v0 (current-record) SQLMesh model.
 
-    **Auto-generate mode** (recommended) — pass ``source_model`` and no
+    **Auto-generate mode** (recommended) — pass ``source_table`` and no
     ``execute`` body is needed::
 
         # models/customer_0_s.py
-        from datavault4sqlmesh import satellite_model, SourceModel
+        from datavault4sqlmesh import satellite_model
 
         satellite_model(
             name="dv.customer_0_s",
             parent_hash_key="hk_customer_h",
             hash_diff="hd_customer_s",
-            payload=["customer_name", "email", "phone", "address"],
-            source_model=SourceModel(schema_name="stage", table_name="stg_customer"),
+            payload=["customer_name", "email"],
+            source_schema="stage",
+            source_table="stg_customer",
         )
 
-    **Decorator mode** (backward-compatible) — omit ``source_model``::
+    **Decorator mode** (for custom execute bodies) — omit ``source_table``::
 
         @satellite_model(
             name="dv.customer_0_s",
             parent_hash_key="hk_customer_h",
             hash_diff="hd_customer_s",
-            payload=["customer_name", "email", "phone", "address"],
+            payload=["customer_name", "email"],
         )
         def execute(evaluator, **kwargs):
             return SatelliteGenerator(...).generate_sql()
@@ -55,10 +55,10 @@ def satellite_model(
         parent_hash_key: Hash key column of the parent Hub or Link.
         hash_diff: Hash diff column name (string) or config dict with ``alias`` key.
         payload: Satellite payload (attribute) column names.
-        source_model: Source ``SourceModel`` (staging table).  When supplied the
-                      factory generates the ``execute`` closure automatically.
+        source_schema: Schema of the staging source table.
+        source_table: Table name of the staging source.  When supplied the
+                      function generates the ``execute`` closure automatically.
         kind: SQLMesh model kind dict.  Defaults to ``INCREMENTAL_UNMANAGED``.
-              Pass e.g. ``{"name": "FULL"}`` to override.
         cron: SQLMesh cron expression.
         grain: Unique-row columns.  Defaults to ``[parent_hash_key, ldts_alias]``.
         tags: Optional list of SQLMesh model tags.
@@ -67,8 +67,8 @@ def satellite_model(
         **model_kwargs: Extra keyword arguments forwarded to ``@model``.
 
     Returns:
-        When ``source_model`` is provided: the registered SQLMesh execute function.
-        When ``source_model`` is ``None``: a decorator for a user-written ``execute``.
+        When ``source_table`` is provided: the registered SQLMesh execute function.
+        When ``source_table`` is ``None``: a decorator for a user-written ``execute``.
     """
     from sqlmesh import model as sqlmesh_model
     from sqlmesh.core.model import ModelKindName
@@ -80,10 +80,10 @@ def satellite_model(
     effective_grain = grain or [parent_hash_key, _dv_config.ldts_alias]
 
     _kind_name = kind.get("name") if kind is not None else None
-    effective_kind: Dict[str, object] = {
-        **(kind or {}),
-        "name": ModelKindName(_kind_name) if isinstance(_kind_name, str) else (_kind_name or ModelKindName.INCREMENTAL_UNMANAGED),
-    }
+    _resolved_name = ModelKindName(_kind_name) if isinstance(_kind_name, str) else (_kind_name or ModelKindName.INCREMENTAL_UNMANAGED)
+    effective_kind: Dict[str, object] = {**(kind or {}), "name": _resolved_name}
+    if _resolved_name == ModelKindName.INCREMENTAL_UNMANAGED and "disable_restatement" not in (kind or {}):
+        effective_kind["disable_restatement"] = False
     decorator_kwargs: Dict[str, object] = {
         "kind": effective_kind,
         "is_sql": True,
@@ -105,11 +105,12 @@ def satellite_model(
             raise
 
     # --- Auto-generate mode ---
-    if source_model is not None:
+    if source_table is not None:
         from datavault4sqlmesh.models._utils import parse_model_name
 
         target_table, target_schema, _ = parse_model_name(name)
-        _source_model_data = source_model.model_dump()
+        _source_schema = source_schema
+        _source_table = source_table
         _parent_hash_key = parent_hash_key
         _hash_diff = hash_diff
         _payload = list(payload or [])
@@ -123,7 +124,7 @@ def satellite_model(
             return SatelliteGenerator(
                 target_table=_target_table,
                 target_schema=_target_schema,
-                source_model=SourceModel(**_source_model_data),
+                source_model=SourceModel(schema_name=_source_schema, table_name=_source_table),
                 parent_hash_key=_parent_hash_key,
                 hash_diff=_hash_diff,
                 payload=_payload or None,

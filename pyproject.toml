@@ -27,6 +27,12 @@ requires-python = ">=3.9"
 
 [project.optional-dependencies]
 test = ["pytest"]
+integration = ["pytest", "psycopg2-binary"]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: requires a running Postgres instance (localhost:5432, dev/dev/dev)",
+]
 
 [project.urls]
 Homepage = "https://github.com/ScalefreeCOM/datavault4sqlmesh"

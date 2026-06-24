@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
 
-from datavault4sqlglot.metadata import SourceBinding, SourceModel
-
 from datavault4sqlmesh.schema.inference import infer_link_columns
 
 
@@ -12,7 +10,10 @@ def link_model(
     link_hash_key: str,
     foreign_hash_keys: List[str],
     *,
-    sources: Optional[List[SourceBinding]] = None,
+    source_schema: Optional[str] = None,
+    source_table: Optional[str] = None,
+    sources: Optional[List] = None,
+    rsrc_statics: Optional[List[str]] = None,
     kind: Optional[Dict[str, object]] = None,
     cron: Optional[str] = None,
     grain: Optional[List[str]] = None,
@@ -22,29 +23,39 @@ def link_model(
     **model_kwargs,
 ) -> Callable:
     """
-    Decorator factory for a Data Vault Link SQLMesh model.
+    Register a Data Vault Link SQLMesh model.
 
-    **Auto-generate mode** (recommended) — pass ``sources`` and no ``execute``
-    body is needed::
+    **Single-source auto-generate mode** (most common) — pass ``source_table``::
 
         # models/order_customer_l.py
-        from datavault4sqlmesh import link_model, SourceBinding, SourceModel
+        from datavault4sqlmesh import link_model
+
+        link_model(
+            name="dv.order_customer_l",
+            link_hash_key="hk_order_customer_l",
+            foreign_hash_keys=["hk_order_h", "hk_customer_h"],
+            source_schema="stage",
+            source_table="stg_orders",
+            rsrc_statics=["OMS/orders"],
+        )
+
+    **Multi-source auto-generate mode** — pass a list of ``SourceModel`` objects
+    via ``sources``::
+
+        from datavault4sqlmesh import link_model, SourceModel
 
         link_model(
             name="dv.order_customer_l",
             link_hash_key="hk_order_customer_l",
             foreign_hash_keys=["hk_order_h", "hk_customer_h"],
             sources=[
-                SourceBinding(
-                    source=SourceModel(schema_name="stage", table_name="stg_orders"),
-                    hash_key_col="hk_order_customer_l",
-                    foreign_hash_keys=["hk_order_h", "hk_customer_h"],
-                    rsrc_statics=["OMS/orders"],
-                )
+                SourceModel(schema_name="stage", table_name="stg_orders"),
+                SourceModel(schema_name="stage", table_name="stg_legacy_orders"),
             ],
         )
 
-    **Decorator mode** (backward-compatible) — omit ``sources``::
+    **Decorator mode** (for custom execute bodies) — omit both ``source_table``
+    and ``sources``::
 
         @link_model(
             name="dv.order_customer_l",
@@ -56,12 +67,14 @@ def link_model(
 
     Args:
         name: Qualified model name (e.g. ``"dv.order_customer_l"``).
-        link_hash_key: Target link hash key column name.
-        foreign_hash_keys: All foreign hash key column names.  At least 2 required.
-        sources: Full ``SourceBinding`` list.  When supplied the factory
-                 generates the ``execute`` closure automatically.
+        link_hash_key: Link hash key column name.
+        foreign_hash_keys: Foreign hash key columns (at least two).
+        source_schema: Schema of the staging source table (single-source shorthand).
+        source_table: Table name of the staging source (single-source shorthand).
+        sources: List of ``SourceModel`` objects for multi-source links.  Cannot
+                 be combined with ``source_table``.
+        rsrc_statics: LIKE-pattern strings for HWM scoping, applied to all sources.
         kind: SQLMesh model kind dict.  Defaults to ``INCREMENTAL_UNMANAGED``.
-              Pass e.g. ``{"name": "FULL"}`` to override.
         cron: SQLMesh cron expression.
         grain: Unique-row columns.  Defaults to ``[link_hash_key]``.
         tags: Optional list of SQLMesh model tags.
@@ -70,11 +83,13 @@ def link_model(
         **model_kwargs: Extra keyword arguments forwarded to ``@model``.
 
     Returns:
-        When ``sources`` is provided: the registered SQLMesh execute function.
-        When ``sources`` is ``None``: a decorator for a user-written ``execute``.
+        When ``source_table`` or ``sources`` is provided: the registered SQLMesh
+        execute function.
+        When both are ``None``: a decorator for a user-written ``execute``.
 
     Raises:
         ValueError: When fewer than 2 ``foreign_hash_keys`` are supplied.
+        ValueError: When both ``source_table`` and ``sources`` are provided.
     """
     from sqlmesh import model as sqlmesh_model
     from sqlmesh.core.model import ModelKindName
@@ -84,22 +99,20 @@ def link_model(
             f"link_model '{name}' requires at least 2 foreign_hash_keys, "
             f"got {len(foreign_hash_keys)}."
         )
-
-    # Column inference: use real sources when available, dummy otherwise.
-    _infer_sources = sources or [
-        SourceBinding(
-            source=SourceModel(table_name="_"),
-            foreign_hash_keys=foreign_hash_keys,
+    if source_table is not None and sources is not None:
+        raise ValueError(
+            f"link_model '{name}': pass either source_table (single-source) or "
+            "sources (multi-source), not both."
         )
-    ]
-    columns = infer_link_columns(link_hash_key, _infer_sources, additional_columns, column_overrides)
+
+    columns = infer_link_columns(link_hash_key, foreign_hash_keys, additional_columns, column_overrides)
     effective_grain = grain or [link_hash_key]
 
     _kind_name = kind.get("name") if kind is not None else None
-    effective_kind: Dict[str, object] = {
-        **(kind or {}),
-        "name": ModelKindName(_kind_name) if isinstance(_kind_name, str) else (_kind_name or ModelKindName.INCREMENTAL_UNMANAGED),
-    }
+    _resolved_name = ModelKindName(_kind_name) if isinstance(_kind_name, str) else (_kind_name or ModelKindName.INCREMENTAL_UNMANAGED)
+    effective_kind: Dict[str, object] = {**(kind or {}), "name": _resolved_name}
+    if _resolved_name == ModelKindName.INCREMENTAL_UNMANAGED and "disable_restatement" not in (kind or {}):
+        effective_kind["disable_restatement"] = False
     decorator_kwargs: Dict[str, object] = {
         "kind": effective_kind,
         "is_sql": True,
@@ -120,24 +133,21 @@ def link_model(
                 return fn
             raise
 
+    # --- Resolve sources list (single-source shorthand or explicit list) ---
+    resolved_sources = sources
+    if source_table is not None:
+        from datavault4sqlglot.metadata import SourceModel
+        resolved_sources = [SourceModel(schema_name=source_schema, table_name=source_table)]
+
     # --- Auto-generate mode ---
-    if sources is not None:
+    if resolved_sources is not None:
         from datavault4sqlmesh.models._utils import parse_model_name
 
         target_table, target_schema, _ = parse_model_name(name)
-        _sources_data = [
-            {
-                "source": sb.source.model_dump(),
-                "business_keys": list(sb.business_keys),
-                "foreign_hash_keys": list(sb.foreign_hash_keys),
-                "hash_key_col": sb.hash_key_col,
-                "payload": list(sb.payload),
-                "rsrc_statics": list(sb.rsrc_statics) if sb.rsrc_statics else None,
-                "additional_columns": list(sb.additional_columns) if sb.additional_columns else None,
-            }
-            for sb in sources
-        ]
+        _sources_data = [sm.model_dump() for sm in resolved_sources]
         _link_hash_key = link_hash_key
+        _foreign_hash_keys = foreign_hash_keys
+        _rsrc_statics = rsrc_statics
         _target_table = target_table
         _target_schema = target_schema
 
@@ -147,13 +157,9 @@ def link_model(
 
             rebuilt = [
                 SourceBinding(
-                    source=SourceModel(**d["source"]),
-                    business_keys=d["business_keys"],
-                    foreign_hash_keys=d["foreign_hash_keys"],
-                    hash_key_col=d["hash_key_col"],
-                    payload=d["payload"],
-                    rsrc_statics=d["rsrc_statics"],
-                    additional_columns=d["additional_columns"],
+                    source=SourceModel(**d),
+                    fk_columns=_foreign_hash_keys,
+                    rsrc_statics=_rsrc_statics,
                 )
                 for d in _sources_data
             ]
@@ -162,6 +168,7 @@ def link_model(
                 target_schema=_target_schema,
                 sources=rebuilt,
                 link_hash_key=_link_hash_key,
+                foreign_hash_keys=_foreign_hash_keys,
                 is_incremental=True,
             ).generate_sql()
 
@@ -169,5 +176,5 @@ def link_model(
         _bind_execute_to_caller(_execute, name)
         return _make_decorator(_execute)
 
-    # --- Decorator mode (backward-compat) ---
+    # --- Decorator mode ---
     return _make_decorator

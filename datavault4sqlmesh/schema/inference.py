@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Union
 # resolves via `getattr(datavault4sqlglot, 'config')` and returns the
 # DataVaultConfig instance, not the module.)
 from datavault4sqlglot.config import config as _dv_config
-from datavault4sqlglot.metadata import SourceBinding, StageModel
+from datavault4sqlglot.metadata import StageModel
 
 # Default SQL type constants — override via column_overrides where needed.
 _HASH_TYPE = "VARCHAR"
@@ -39,7 +39,7 @@ def _resolve_hash_diff_alias(hash_diff: Union[str, Dict[str, str]]) -> str:
 
 def infer_hub_columns(
     hashkey: str,
-    sources: List[SourceBinding],
+    business_keys: List[str],
     additional_columns: Optional[List[str]] = None,
     column_overrides: Optional[Dict[str, str]] = None,
 ) -> Dict[str, str]:
@@ -48,14 +48,14 @@ def infer_hub_columns(
 
     Column order matches the Hub generator output:
     1. Hash key (VARCHAR)
-    2. Business keys from all sources, de-duplicated in declaration order (VARCHAR)
+    2. Business keys, de-duplicated in declaration order (VARCHAR)
     3. Additional columns (VARCHAR)
     4. ldts (TIMESTAMP)
     5. rsrc (VARCHAR)
 
     Args:
         hashkey: Target hash key column name in the Hub table.
-        sources: SourceBinding list; business_keys are collected from every binding.
+        business_keys: Business key column names.
         additional_columns: Extra columns appended after business keys.
         column_overrides: Exact type strings applied last, overriding inferred types.
 
@@ -63,10 +63,10 @@ def infer_hub_columns(
         Ordered dict mapping column name → SQL type string.
 
     Raises:
-        ValueError: When ``sources`` is empty.
+        ValueError: When ``business_keys`` is empty.
     """
-    if not sources:
-        raise ValueError("hub_model requires at least one SourceBinding in sources.")
+    if not business_keys:
+        raise ValueError("infer_hub_columns requires at least one business key.")
 
     ldts_col = _dv_config.ldts_alias
     rsrc_col = _dv_config.rsrc_alias
@@ -75,11 +75,10 @@ def infer_hub_columns(
     columns[hashkey] = _HASH_TYPE
 
     seen: set[str] = {hashkey}
-    for binding in sources:
-        for bk in binding.business_keys:
-            if bk not in seen:
-                columns[bk] = _VARCHAR_TYPE
-                seen.add(bk)
+    for bk in business_keys:
+        if bk not in seen:
+            columns[bk] = _VARCHAR_TYPE
+            seen.add(bk)
 
     for col in additional_columns or []:
         if col not in seen:
@@ -97,7 +96,7 @@ def infer_hub_columns(
 
 def infer_link_columns(
     link_hash_key: str,
-    sources: List[SourceBinding],
+    foreign_hash_keys: List[str],
     additional_columns: Optional[List[str]] = None,
     column_overrides: Optional[Dict[str, str]] = None,
 ) -> Dict[str, str]:
@@ -106,14 +105,14 @@ def infer_link_columns(
 
     Column order matches the Link generator output:
     1. Link hash key (VARCHAR)
-    2. Foreign hash keys from all sources, de-duplicated in declaration order (VARCHAR)
+    2. Foreign hash keys, de-duplicated in declaration order (VARCHAR)
     3. Additional columns (VARCHAR)
     4. ldts (TIMESTAMP)
     5. rsrc (VARCHAR)
 
     Args:
         link_hash_key: Target link hash key column name.
-        sources: SourceBinding list; foreign_hash_keys are collected from every binding.
+        foreign_hash_keys: All foreign hash key column names.
         additional_columns: Extra columns appended after foreign hash keys.
         column_overrides: Exact type strings applied last, overriding inferred types.
 
@@ -121,17 +120,13 @@ def infer_link_columns(
         Ordered dict mapping column name → SQL type string.
 
     Raises:
-        ValueError: When ``sources`` is empty or any binding has fewer than 2 foreign keys.
+        ValueError: When fewer than 2 ``foreign_hash_keys`` are supplied.
     """
-    if not sources:
-        raise ValueError("link_model requires at least one SourceBinding in sources.")
-
-    for binding in sources:
-        if len(binding.foreign_hash_keys) < 2:
-            raise ValueError(
-                f"Link source '{binding.source.table_name}' must declare at least "
-                f"2 foreign_hash_keys, got {len(binding.foreign_hash_keys)}."
-            )
+    if len(foreign_hash_keys) < 2:
+        raise ValueError(
+            f"infer_link_columns requires at least 2 foreign_hash_keys, "
+            f"got {len(foreign_hash_keys)}."
+        )
 
     ldts_col = _dv_config.ldts_alias
     rsrc_col = _dv_config.rsrc_alias
@@ -140,11 +135,10 @@ def infer_link_columns(
     columns[link_hash_key] = _HASH_TYPE
 
     seen: set[str] = {link_hash_key}
-    for binding in sources:
-        for fhk in binding.foreign_hash_keys:
-            if fhk not in seen:
-                columns[fhk] = _HASH_TYPE
-                seen.add(fhk)
+    for fhk in foreign_hash_keys:
+        if fhk not in seen:
+            columns[fhk] = _HASH_TYPE
+            seen.add(fhk)
 
     for col in additional_columns or []:
         if col not in seen:

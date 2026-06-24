@@ -15,12 +15,7 @@ All classes and generators needed in model files are re-exported here so that
 each model file only needs a single ``from datavault4sqlmesh import ...``
 statement::
 
-    from datavault4sqlmesh import (
-        hub_model,
-        HubGenerator,
-        SourceBinding,
-        SourceModel,
-    )
+    from datavault4sqlmesh import hub_model, SourceModel
 
 Typical usage in a SQLMesh project::
 
@@ -29,28 +24,15 @@ Typical usage in a SQLMesh project::
     load_dv_config()
 
     # models/customer_h.py
-    from datavault4sqlmesh import hub_model, HubGenerator, SourceBinding, SourceModel
+    from datavault4sqlmesh import hub_model, SourceModel
 
-    @hub_model(
+    hub_model(
         name="dv.customer_h",
         hashkey="hk_customer_h",
         business_keys=["customer_id"],
+        sources=[SourceModel(schema_name="stage", table_name="stg_customer")],
+        rsrc_statics=["ERP/customers"],
     )
-    def execute(evaluator, **kwargs):
-        return HubGenerator(
-            target_table="customer_h",
-            target_schema="dv",
-            sources=[
-                SourceBinding(
-                    source=SourceModel(schema_name="stage", table_name="stg_customer"),
-                    hash_key_col="hk_customer_h",
-                    business_keys=["customer_id"],
-                    rsrc_statics=["ERP/customers"],
-                )
-            ],
-            hashkey="hk_customer_h",
-            is_incremental=True,
-        ).generate_sql()
 """
 
 # ---------------------------------------------------------------------------
@@ -90,7 +72,7 @@ from datavault4sqlglot.generators.stage import StageGenerator
 # ---------------------------------------------------------------------------
 # datavault4sqlglot metadata — re-exported for single-import convenience
 # ---------------------------------------------------------------------------
-from datavault4sqlglot.metadata import SourceBinding, SourceModel, StageModel
+from datavault4sqlglot.metadata import SourceModel, StageModel
 
 __all__ = [
     # Config
@@ -114,7 +96,6 @@ __all__ = [
     "SatelliteV1Generator",
     "StageGenerator",
     # Metadata
-    "SourceBinding",
     "SourceModel",
     "StageModel",
 ]

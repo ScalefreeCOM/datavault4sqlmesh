@@ -67,11 +67,12 @@ class TestHubModel:
                     SourceBinding(
                         source=SourceModel(schema_name="stage", table_name="stg_customer"),
                         hash_key_col="hk_customer_h",
-                        business_keys=["customer_id"],
+                        bk_columns=["customer_id"],
                         rsrc_statics=["ERP/customers"],
                     )
                 ],
                 hashkey="hk_customer_h",
+                business_keys=["customer_id"],
                 is_incremental=True,
             ).generate_sql()
 
@@ -96,11 +97,12 @@ class TestHubModel:
                     SourceBinding(
                         source=SourceModel(schema_name="stage", table_name="stg_customer"),
                         hash_key_col="hk_customer_h",
-                        business_keys=["customer_id"],
+                        bk_columns=["customer_id"],
                         rsrc_statics=["ERP/customers"],
                     )
                 ],
                 hashkey="hk_customer_h",
+                business_keys=["customer_id"],
                 is_incremental=True,
             ).generate_sql()
 
@@ -133,17 +135,18 @@ class TestHubModel:
                     SourceBinding(
                         source=SourceModel(schema_name="stage", table_name="stg_crm"),
                         hash_key_col="hk_customer_h",
-                        business_keys=["customer_id"],
+                        bk_columns=["customer_id"],
                         rsrc_statics=["CRM/customers"],
                     ),
                     SourceBinding(
                         source=SourceModel(schema_name="stage", table_name="stg_erp"),
                         hash_key_col="hk_customer_h",
-                        business_keys=["customer_id"],
+                        bk_columns=["customer_id"],
                         rsrc_statics=["ERP/customers"],
                     ),
                 ],
                 hashkey="hk_customer_h",
+                business_keys=["customer_id"],
                 is_incremental=True,
             ).generate_sql()
 
@@ -168,13 +171,8 @@ class TestHubModel:
     def test_additional_columns_in_schema(self, sqlmesh):
         """additional_columns appear in the inferred schema."""
         from datavault4sqlmesh.schema.inference import infer_hub_columns
-        from datavault4sqlglot.metadata import SourceBinding, SourceModel
 
-        _dummy = [SourceBinding(
-            source=SourceModel(table_name="_"),
-            business_keys=["customer_id"],
-        )]
         cols = infer_hub_columns(
-            "hk_customer_h", _dummy, additional_columns=["tenant_id"]
+            "hk_customer_h", ["customer_id"], additional_columns=["tenant_id"]
         )
         assert "tenant_id" in cols

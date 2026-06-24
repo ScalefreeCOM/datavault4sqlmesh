@@ -63,8 +63,8 @@ def satellite_v1_model(
         add_is_current: Append an ``is_current`` boolean column (default ``True``).
         is_current_col: Column name for the is-current flag.
         ledts_alias: Load-end-timestamp column name.
-        kind: SQLMesh model kind dict.  Defaults to ``VIEW``.
-              Pass e.g. ``{"name": "FULL"}`` to override.
+        kind: SQLMesh model kind dict.  Defaults to ``FULL``.
+              Pass e.g. ``{"name": "VIEW"}`` to override.
         cron: SQLMesh cron expression.
         tags: Optional list of SQLMesh model tags.
         column_overrides: Exact SQL type strings applied after inference.
@@ -90,7 +90,7 @@ def satellite_v1_model(
     _kind_name = kind.get("name") if kind is not None else None
     effective_kind: Dict[str, object] = {
         **(kind or {}),
-        "name": ModelKindName(_kind_name) if isinstance(_kind_name, str) else (_kind_name or ModelKindName.VIEW),
+        "name": ModelKindName(_kind_name) if isinstance(_kind_name, str) else (_kind_name or ModelKindName.FULL),
     }
     decorator_kwargs: Dict[str, object] = {
         "kind": effective_kind,

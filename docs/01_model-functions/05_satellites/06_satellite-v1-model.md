@@ -72,7 +72,7 @@ satellite_v1_model(
 
 ### Materializes as a table, not a view
 
-Data Vault 2.0 specifies that a v1 satellite is a derived view over the v0 base satellite.
+Data Vault 2 specifies that a v1 satellite is a derived view over the v0 base satellite.
 In SQLMesh, Python `execute` models can only produce **tables** — the `VIEW` kind is
 available only for SQL models. For this reason, `satellite_v1_model` uses `FULL` (complete
 refresh table).

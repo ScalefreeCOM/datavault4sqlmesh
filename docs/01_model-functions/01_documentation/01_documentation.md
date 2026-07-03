@@ -9,7 +9,7 @@ title: Documentation
 ---
 
 The following documentation describes the model functions developed by Scalefree to integrate
-Data Vault 2.0 patterns into [SQLMesh](https://sqlmesh.com/) projects. Each function replaces
+Data Vault 2 patterns into [SQLMesh](https://sqlmesh.com/) projects. Each function replaces
 the full `@model` decorator, `execute` function, and manually maintained `columns={}` schema
 dict in a SQLMesh Python model file with a single declarative call.
 
@@ -101,5 +101,4 @@ stage_model(
 ## RESOURCES
 
 - [Scalefree Blog](https://www.scalefree.com/blog/)
-- [SQLMesh Documentation](https://sqlmesh.readthedocs.io/)
-- [Data Vault 2.0 — Dan Linstedt](https://datavaultalliance.com/)
+- [Free Data Vault Handbook](https://www.scalefree.com/the-data-vault-handbook/)

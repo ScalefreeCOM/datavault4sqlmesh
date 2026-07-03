@@ -2,7 +2,7 @@
 datavault4sqlmesh
 =================
 
-SQLMesh model decorator factories for Data Vault 2.0, built on top of
+SQLMesh model decorator factories for Data Vault 2, built on top of
 datavault4sqlglot.
 
 Each factory function is a **decorator factory** — it returns a decorator that

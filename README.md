@@ -1,8 +1,5 @@
 # datavault4sqlmesh
 
-SQLMesh model functions for **Data Vault**, built on
-[datavault4sqlglot](../datavault4sqlglot).
-
 Each function replaces the full `@model` decorator, `execute` function, and
 manually maintained `columns={}` dict in a SQLMesh Python model file with a
 single declarative call.

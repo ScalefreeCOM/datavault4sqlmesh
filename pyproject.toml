@@ -8,13 +8,15 @@ include = ["datavault4sqlmesh*"]
 [project]
 name = "datavault4sqlmesh"
 version = "0.1.0"
-description = "Data Vault 2.0 SQLMesh model factories built on datavault4sqlglot"
+description = "Data Vault 2 SQLMesh model factories built on datavault4sqlglot"
+readme = "README.md"
+license = {file = "LICENSE"}
 authors = [
   { name = "Scalefree International GmbH", email = "info@scalefree.com" },
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -35,6 +37,6 @@ markers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ScalefreeCOM/datavault4sqlmesh"
+Homepage = "https://scalefree.com"
 Repository = "https://github.com/ScalefreeCOM/datavault4sqlmesh"
 "Bug Tracker" = "https://github.com/ScalefreeCOM/datavault4sqlmesh/issues"

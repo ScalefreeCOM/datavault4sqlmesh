@@ -29,8 +29,7 @@ Requires Python 3.9+ & `sqlmesh`.
 }
 ```
 
-See [datavault4sqlglot configuration](../datavault4sqlglot/README.md#configuration) --> link auf github md
-for all available keys and their defaults.
+See [datavault4sqlglot configuration](https://github.com/ScalefreeCOM/datavault4sqlglot/blob/main/README.md#configuration). 
 
 ### 2. Load configuration once in `models/__init__.py`
 

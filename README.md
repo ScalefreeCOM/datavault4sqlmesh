@@ -9,11 +9,10 @@ single declarative call.
 ## Installation
 
 ```bash
-pip install -e datavault4sqlglot/
-pip install -e datavault4sqlmesh/ -- dependency to sqlglot
+pip install datavault4sqlmesh
 ```
 
-Requires Python 3.9+, `sqlmesh`, and `sqlglot`.
+Requires Python 3.9+ & `sqlmesh`.
 
 ---
 

@@ -90,13 +90,16 @@ Follow the **exact same standards** as `datavault4sqlglot/CLAUDE.md`:
 
 ## 3. SQLMesh Model Kind Mapping
 
-| DV Entity       | SQLMesh Kind            | Notes                                   |
-|-----------------|-------------------------|-----------------------------------------|
-| Stage           | `FULL`                  | Complete refresh every run              |
-| Hub             | `INCREMENTAL_UNMANAGED` | HWM-based incremental load              |
-| Link            | `INCREMENTAL_UNMANAGED` | HWM-based incremental load              |
-| Satellite v0    | `INCREMENTAL_UNMANAGED` | HWM-based incremental load              |
-| Satellite v1    | `VIEW`                  | Always derived from v0; no state needed |
+| DV Entity       | SQLMesh Kind            | Notes                                                      |
+|-----------------|-------------------------|------------------------------------------------------------|
+| Stage           | `FULL`                  | Complete refresh every run                                 |
+| Hub             | `INCREMENTAL_UNMANAGED` | HWM-based incremental load                                 |
+| Link            | `INCREMENTAL_UNMANAGED` | HWM-based incremental load                                 |
+| Satellite v0    | `INCREMENTAL_UNMANAGED` | HWM-based incremental load                                 |
+| Satellite v1    | `FULL`                  | Python model constraint — cannot use VIEW; override via `kind` |
+
+> **Why `FULL` for sat v1?** SQLMesh Python models cannot use `VIEW` kind directly.
+> Users may override with `kind={"name": "VIEW"}` only if they control the model type.
 
 ---
 
@@ -114,7 +117,49 @@ Users override individual column types via the `column_overrides` parameter.
 
 ---
 
-## 5. Self-Review Checklist
+## 5. Running Tests
+
+Always use the project venv:
+
+```bash
+# Unit tests (no SQLMesh/Postgres needed)
+.venv/sqlglot/Scripts/pytest tests/ -v --ignore=tests/integration
+
+# Integration tests (requires Postgres at localhost:5432, credentials dev/dev/dev)
+.venv/sqlglot/Scripts/pytest tests/integration/ -v -m integration
+```
+
+Integration tests are marked `@pytest.mark.integration` and skipped unless explicitly selected.
+
+---
+
+## 6. Factory Modes
+
+Each model factory supports two usage patterns:
+
+**Auto-generate mode** — pass source table/schema, no `execute` body needed:
+```python
+hub_model(
+    name="dv.customer_h",
+    hashkey="hk_customer_h",
+    business_keys=["customer_id"],
+    source_schema="staging",
+    source_table="customer_stg",
+)
+```
+
+**Decorator mode** — omit source, wrap a custom `execute`:
+```python
+@hub_model(name="dv.customer_h", hashkey="hk_customer_h", business_keys=["customer_id"])
+def execute(evaluator, **kwargs):
+    return HubGenerator(...).generate_sql()
+```
+
+`satellite_model` and `stage_model` are single-source only (no `sources` list). Hub and link support multi-source via `sources: List[SourceModel]`.
+
+---
+
+## 8. Self-Review Checklist
 
 When writing or refactoring code in this package:
 

@@ -1,6 +1,6 @@
 # datavault4sqlmesh
 
-SQLMesh model functions for **Data Vault 2.0**, built on
+SQLMesh model functions for **Data Vault**, built on
 [datavault4sqlglot](../datavault4sqlglot).
 
 Each function replaces the full `@model` decorator, `execute` function, and
@@ -13,7 +13,7 @@ single declarative call.
 
 ```bash
 pip install -e datavault4sqlglot/
-pip install -e datavault4sqlmesh/
+pip install -e datavault4sqlmesh/ -- dependency to sqlglot
 ```
 
 Requires Python 3.9+, `sqlmesh`, and `sqlglot`.
@@ -33,7 +33,7 @@ Requires Python 3.9+, `sqlmesh`, and `sqlglot`.
 }
 ```
 
-See [datavault4sqlglot configuration](../datavault4sqlglot/README.md#configuration)
+See [datavault4sqlglot configuration](../datavault4sqlglot/README.md#configuration) --> link auf github md
 for all available keys and their defaults.
 
 ### 2. Load configuration once in `models/__init__.py`

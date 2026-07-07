@@ -109,6 +109,20 @@ satellite_v1_model(
 )
 ```
 
+### 4. See a working example
+
+The **[datavault4sqlmesh-demo](https://github.com/ScalefreeCOM/datavault4sqlmesh-demo)** repo is a
+minimal end-to-end project you can clone and run locally. It covers a customer-and-orders dataset
+through the full DV2.0 pipeline — staging, hubs, links, and all three satellite patterns (v0/v1/v2)
+— against a local PostgreSQL instance.
+
+```bash
+git clone https://github.com/ScalefreeCOM/datavault4sqlmesh-demo
+cd datavault4sqlmesh-demo
+pip install datavault4sqlmesh
+sqlmesh plan --auto-apply
+```
+
 ---
 
 ## Model functions

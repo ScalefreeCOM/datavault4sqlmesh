@@ -1,10 +1,12 @@
-# datavault4sqlmesh
 
-Each function replaces the full `@model` decorator, `execute` function, and
-manually maintained `columns={}` dict in a SQLMesh Python model file with a
-single declarative call.
+# datavault4sqlmesh
+<img width="1357" height="300" alt="DataVault4sqlmesh-Powered-by-Scalefree-White" src="https://github.com/user-attachments/assets/5924cd48-3e71-4ccf-a8f9-e869661a0f3a" />
 
 ---
+`datavault4sqlmesh` is a Python library that brings Data Vault 2
+models to SQLMesh. It auto-derives the `columns={}` schema, 
+sets the correct model kind (`INCREMENTAL_UNMANAGED` or `FULL`), and wires up the `execute` 
+function — so each Data Vault entity is a single declarative call in your model file.
 
 ## Installation
 

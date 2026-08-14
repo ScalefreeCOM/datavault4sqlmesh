@@ -36,12 +36,20 @@ jobs:
       - name: Install datavault4sqlmesh from PR branch
         run: pip install ".[integration]"
 
+      - name: Generate demo repo token
+        id: demo-app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.DOCS_APP_ID }}
+          private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+          repositories: datavault4sqlmesh-demo
+
       - name: Checkout demo project
         uses: actions/checkout@v4
         with:
           repository: ScalefreeCOM/datavault4sqlmesh-demo
           path: demo
-          token: ${{ secrets.DEMO_REPO_TOKEN }}
+          token: ${{ steps.demo-app-token.outputs.token }}
 
       - name: Run SQLMesh plan
         working-directory: demo

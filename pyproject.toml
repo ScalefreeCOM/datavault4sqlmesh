@@ -7,7 +7,7 @@ include = ["datavault4sqlmesh*"]
 
 [project]
 name = "datavault4sqlmesh"
-version = "0.1.1"
+version = "0.2.0"
 description = "Data Vault 2 SQLMesh model factories built on datavault4sqlglot"
 readme = "README.md"
 license = {file = "LICENSE"}

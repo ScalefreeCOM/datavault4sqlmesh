@@ -62,8 +62,9 @@ class TestStageModel:
             },
         )
         sql = execute_fn(evaluator=None).sql(dialect="snowflake")
-        assert "hk_customer_h" in sql
-        assert "hd_customer_s" in sql
+        # Generated names follow Snowflake's normalization (uppercase).
+        assert '"HK_CUSTOMER_H"' in sql
+        assert '"HD_CUSTOMER_S"' in sql
 
     def test_sql_references_source_table(self, sqlmesh):
         from datavault4sqlmesh.models.stage import stage_model

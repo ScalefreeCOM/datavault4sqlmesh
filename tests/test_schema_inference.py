@@ -282,3 +282,86 @@ class TestInferStageColumns:
         cols = infer_stage_columns(source)
         assert "ldts" in cols
         assert "rsrc" in cols
+
+    def test_hashkey_source_columns_auto_included(self):
+        """Business key columns referenced in a hashkey are added automatically."""
+        source = StageModel(
+            table_name="orders",
+            hashed_columns={"hk_order_h": ["order_id", "order_type"]},
+        )
+        cols = infer_stage_columns(source)
+        assert "order_id" in cols
+        assert "order_type" in cols
+
+    def test_hashdiff_source_columns_auto_included(self):
+        """Payload columns referenced in a hashdiff are added automatically."""
+        source = StageModel(
+            table_name="customers",
+            hashed_columns={
+                "hd_customer_s": {
+                    "is_hashdiff": True,
+                    "columns": ["customer_name", "email", "phone"],
+                }
+            },
+        )
+        cols = infer_stage_columns(source)
+        assert "customer_name" in cols
+        assert "email" in cols
+        assert "phone" in cols
+
+    def test_auto_source_columns_are_varchar(self):
+        """Auto-inferred source columns default to VARCHAR."""
+        source = StageModel(
+            table_name="orders",
+            hashed_columns={"hk_order_h": ["order_id"]},
+        )
+        cols = infer_stage_columns(source)
+        assert cols["order_id"] == "VARCHAR"
+
+    def test_column_overrides_refine_auto_source_column_type(self):
+        """column_overrides can tighten the type of an auto-inferred source column."""
+        source = StageModel(
+            table_name="orders",
+            hashed_columns={"hk_order_h": ["order_id"]},
+        )
+        cols = infer_stage_columns(source, column_overrides={"order_id": "BIGINT"})
+        assert cols["order_id"] == "BIGINT"
+
+    def test_hash_alias_not_duplicated_by_source_column(self):
+        """A column name that is both an alias and a source column appears once."""
+        source = StageModel(
+            table_name="orders",
+            hashed_columns={
+                "hk_order_h": ["hk_order_h"],  # degenerate but valid
+            },
+        )
+        cols = infer_stage_columns(source)
+        keys = list(cols.keys())
+        assert keys.count("hk_order_h") == 1
+        assert cols["hk_order_h"] == "VARCHAR"  # hash alias type wins (set first)
+
+    def test_mixed_hashkey_and_hashdiff_source_columns(self):
+        """Both hashkey and hashdiff source columns are added in a combined model."""
+        source = StageModel(
+            table_name="orders",
+            hashed_columns={
+                "hk_customer_h": ["customer_id"],
+                "hd_customer_s": {
+                    "is_hashdiff": True,
+                    "columns": ["customer_name", "email"],
+                },
+            },
+        )
+        cols = infer_stage_columns(source)
+        assert "customer_id" in cols
+        assert "customer_name" in cols
+        assert "email" in cols
+
+    def test_source_column_order_after_hash_aliases(self):
+        """Hash aliases appear before their source columns in the schema dict."""
+        source = StageModel(
+            table_name="orders",
+            hashed_columns={"hk_order_h": ["order_id"]},
+        )
+        keys = list(infer_stage_columns(source).keys())
+        assert keys.index("hk_order_h") < keys.index("order_id")

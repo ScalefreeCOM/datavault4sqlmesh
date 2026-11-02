@@ -281,34 +281,35 @@ def infer_stage_columns(
     """
     Infer the SQLMesh ``columns`` schema dict for a Stage model.
 
-    Infers only the columns that are derivable from the ``StageModel`` metadata:
-    hashed columns, derived columns, schema-evolution placeholders, ldts, and rsrc.
+    Derives the full stage output schema from the ``StageModel`` metadata without
+    requiring a live database connection:
 
-    Source columns produced by ``include_source_columns=True`` cannot be inferred
-    without querying the source database.  Specify them explicitly via
-    ``column_overrides``::
+    - **Hash alias columns** — the output column names for every hashkey and hashdiff
+      (e.g. ``hk_customer_h``, ``hd_customer_s``).
+    - **Hash source columns** — the source columns consumed by each hashkey list and
+      each hashdiff ``columns`` list (e.g. business keys, payload columns). These are
+      the columns that hub and satellite models read from the stage; they are inferred
+      directly from ``hashed_columns`` so ``column_overrides`` is no longer required
+      just to make downstream DV models resolve.
+    - **Derived columns** — targets of any rename or expression in ``derived_columns``.
+    - **Missing-column placeholders** — entries in ``missing_columns``.
+    - ``ldts`` (TIMESTAMP) and ``rsrc`` (VARCHAR) from the global DV config.
 
-        execute = stage_model(
-            name="stage.stg_customer",
-            source_model=source,
-            column_overrides={
-                "customer_id": "VARCHAR",
-                "customer_name": "VARCHAR",
-            },
-        )
+    ``column_overrides`` is still accepted and applied last, so callers can refine the
+    inferred VARCHAR default to a more precise type (e.g. ``"amount": "DECIMAL(18,2)"``).
 
     Column order:
-    1. Hashed columns (VARCHAR)
-    2. Derived columns (VARCHAR)
-    3. Missing-column placeholders (VARCHAR)
-    4. ldts (TIMESTAMP)
-    5. rsrc (VARCHAR)
-    6. Anything added via column_overrides
+    1. Hashed column aliases (VARCHAR)
+    2. Hash source columns — business keys and hashdiff payload columns (VARCHAR)
+    3. Derived columns (VARCHAR)
+    4. Missing-column placeholders (VARCHAR)
+    5. ldts (TIMESTAMP)
+    6. rsrc (VARCHAR)
+    7. column_overrides (applied last — overrides any inferred type above)
 
     Args:
         source_model: StageModel describing the raw source table.
-        column_overrides: Exact type strings applied last, overriding inferred types
-                          and adding any unknown source columns.
+        column_overrides: Exact type strings applied last, overriding inferred types.
 
     Returns:
         Ordered dict mapping column name → SQL type string.
@@ -318,13 +319,30 @@ def infer_stage_columns(
 
     columns: Dict[str, str] = {}
 
+    # 1. Hash aliases (hk_*, hd_*) — the computed output columns.
     for alias in source_model.hashed_columns or {}:
         columns[alias] = _HASH_TYPE
 
+    # 2. Hash source columns — the raw columns consumed by each hash definition.
+    #    Hashkey value is a list of source column names; hashdiff value is a dict
+    #    with an "is_hashdiff" flag and a "columns" list. Both are added as VARCHAR
+    #    so downstream hub/satellite models can resolve them without column_overrides.
+    for definition in (source_model.hashed_columns or {}).values():
+        if isinstance(definition, list):
+            for src_col in definition:
+                if src_col not in columns:
+                    columns[src_col] = _VARCHAR_TYPE
+        elif isinstance(definition, dict) and definition.get("is_hashdiff"):
+            for src_col in definition.get("columns") or []:
+                if src_col not in columns:
+                    columns[src_col] = _VARCHAR_TYPE
+
+    # 3. Derived columns (renames / expressions).
     for alias in source_model.derived_columns or {}:
         if alias not in columns:
             columns[alias] = _VARCHAR_TYPE
 
+    # 4. Missing-column placeholders (schema evolution).
     for col_name in source_model.missing_columns or {}:
         if col_name not in columns:
             columns[col_name] = _VARCHAR_TYPE

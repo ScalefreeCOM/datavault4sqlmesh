@@ -1,0 +1,48 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: dev
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install datavault4sqlmesh from PR branch
+        run: pip install ".[integration]"
+
+      - name: Checkout demo project
+        uses: actions/checkout@v4
+        with:
+          repository: ScalefreeCOM/datavault4sqlmesh-demo
+          path: demo
+          token: ${{ secrets.DEMO_REPO_TOKEN }}
+
+      - name: Run SQLMesh plan
+        working-directory: demo
+        run: sqlmesh plan --auto-apply --no-prompts --run --ignore-cron

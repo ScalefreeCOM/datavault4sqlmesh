@@ -118,10 +118,13 @@ def satellite_model(
         _target_schema = target_schema
 
         def _execute(evaluator, **kwargs):  # noqa: ANN001
+            from datavault4sqlglot.config import config as _cfg
             from datavault4sqlglot.generators.satellite import SatelliteGenerator
             from datavault4sqlglot.metadata import SourceModel
 
-            return SatelliteGenerator(
+            from datavault4sqlmesh.models._identifiers import normalize_all_identifiers
+
+            sql = SatelliteGenerator(
                 target_table=_target_table,
                 target_schema=_target_schema,
                 source_model=SourceModel(schema_name=_source_schema, table_name=_source_table),
@@ -130,6 +133,8 @@ def satellite_model(
                 payload=_payload or None,
                 is_incremental=True,
             ).generate_sql()
+            # Source stage and target are SQLMesh-managed; match its normalization.
+            return normalize_all_identifiers(sql, _cfg.dialect)
 
         from datavault4sqlmesh.models._utils import _bind_execute_to_caller
         _bind_execute_to_caller(_execute, name)

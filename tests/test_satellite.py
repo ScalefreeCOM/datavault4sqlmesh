@@ -168,5 +168,6 @@ class TestSatelliteModel:
         result = execute(evaluator=None)
         assert isinstance(result, exp.Expression)
         sql = result.sql(dialect="snowflake")
-        assert "stg_customer" in sql
-        assert "customer_name" in sql
+        # Identifiers follow Snowflake's normalization (uppercase).
+        assert "STG_CUSTOMER" in sql
+        assert "CUSTOMER_NAME" in sql

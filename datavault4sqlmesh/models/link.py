@@ -152,8 +152,11 @@ def link_model(
         _target_schema = target_schema
 
         def _execute(evaluator, **kwargs):  # noqa: ANN001
+            from datavault4sqlglot.config import config as _cfg
             from datavault4sqlglot.generators.link import LinkGenerator
             from datavault4sqlglot.metadata import SourceBinding, SourceModel
+
+            from datavault4sqlmesh.models._identifiers import normalize_all_identifiers
 
             rebuilt = [
                 SourceBinding(
@@ -163,7 +166,7 @@ def link_model(
                 )
                 for d in _sources_data
             ]
-            return LinkGenerator(
+            sql = LinkGenerator(
                 target_table=_target_table,
                 target_schema=_target_schema,
                 sources=rebuilt,
@@ -171,6 +174,8 @@ def link_model(
                 foreign_hash_keys=_foreign_hash_keys,
                 is_incremental=True,
             ).generate_sql()
+            # Sources and target are SQLMesh-managed; match its normalization.
+            return normalize_all_identifiers(sql, _cfg.dialect)
 
         from datavault4sqlmesh.models._utils import _bind_execute_to_caller
         _bind_execute_to_caller(_execute, name)

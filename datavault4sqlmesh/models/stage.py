@@ -147,6 +147,8 @@ def stage_model(
         from datavault4sqlglot.generators.stage import StageGenerator
         from datavault4sqlglot.metadata import StageModel
 
+        from datavault4sqlmesh.models._identifiers import normalize_generated_columns
+
         sql = StageGenerator(
             source_model=StageModel(**_source_model_data),
             target_table=_target_table,
@@ -168,14 +170,15 @@ def stage_model(
                     )
                 else:
                     selects.append(_exp.column(col))
-            return _exp.select(*selects).from_(
+            sql = _exp.select(*selects).from_(
                 _exp.Subquery(
                     this=sql,
                     alias=_exp.TableAlias(this=_exp.Identifier(this="_stg")),
                 )
             )
 
-        return sql
+        # Match SQLMesh's dialect normalization of the declared columns.
+        return normalize_generated_columns(sql, _cfg.dialect)
 
     from datavault4sqlmesh.models._utils import _bind_execute_to_caller
     _bind_execute_to_caller(_execute, name)
